@@ -2,40 +2,23 @@ from datetime import datetime, timedelta
 import requests
 from dotenv import load_dotenv
 import os
-import re
 import json
-from openai import OpenAI
+from typing import List
+from pydantic import BaseModel, Field
+from instructor import from_groq, Mode
+from groq import Groq
 
-# Load environment variables
 load_dotenv()
 OPENWEATHER_API_KEY = os.getenv('OPENWEATHERMAP_API_KEY')
-OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
-MODEL = "nvidia/llama-3.3-nemotron-super-49b-v1:free"
+GROQ_API_KEY = os.getenv('GROQ_API_KEY')
+MODEL = "llama-3.3-70b-versatile"
 BASE_URL = "http://api.openweathermap.org/data/2.5/forecast"
 
-SYSTEM_PROMPT = """
-    You are a helpful assistant. Check the weather forecast and give summary, chance of rain and suggest some advice in response. State each field in one line. Don't give any other information apart from the precaution.
-
-    Input:
-    Analyze the weather forecast for Patna, Bihar:
-    2025-04-24 00:00:00 | 20.22°C | light rain
-    2025-04-24 03:00:00 | 19.99°C | light rain
-    2025-04-24 06:00:00 | 19.77°C | light rain
-
-    Output:
-    ```json
-    {
-        "summary": "Light rain is forecasted for the next 3 days.",
-        "chance_of_rain": "80%",
-        "advice": "Light rain is forecasted. Carry an umbrella.",
-        "general_packing_tips": [
-            "Wear waterproof clothing.",
-            "Bring an umbrella with you.",
-            "Bring a rain jacket."
-        ],
-    }
-    ```
-"""
+class WeatherResponse(BaseModel):
+    summary: str
+    chance_of_rain: str
+    advice: str
+    general_packing_tips: List[str]
 
 class WeatherChecker:
     def __init__(self, city):
@@ -65,80 +48,37 @@ class WeatherChecker:
 
 class WeatherAnalyzer:
     def __init__(self):
-        self.model = MODEL
-        self.api_key = OPENROUTER_API_KEY
-        self.client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=self.api_key,
+        self.client = from_groq(
+            Groq(api_key=GROQ_API_KEY),
+            mode=Mode.JSON
         )
 
-    def analyze(self, city, forecast_str):
-        try:
-            payload = {
-                "model": self.model,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": f"Analyze the weather forecast for {city}:\n{forecast_str}"
-                    }
-                ],
-                "response_format": {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "weather",
-                        "strict": True,
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "summary": {"type": "string"},
-                                "chance_of_rain": {"type": "string"},
-                                "advice": {"type": "string"},
-                                "general_packing_tips": {
-                                    "type": "array",
-                                    "items": {"type": "string"}
-                                },
-                            },
-                            "required": ["summary", "chance_of_rain", "advice", "general_packing_tips"],
-                            "additionalProperties": False,
-                        },
-                    },
-                },
-            }
+    def analyze(self, city, forecast_str) -> WeatherResponse:
+        prompt = f"""
+        You are a helpful assistant. Analyze the weather forecast for {city}. Based on the input, return only a JSON object with the following fields:
 
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            }
+        - summary: One-line summary of the weather for the day.
+        - chance_of_rain: Estimated chance of rain as a percentage.
+        - advice: One line of travel advice based on the weather.
+        - general_packing_tips: A short list of 2–4 things to pack based on the weather (like umbrella, light clothes, etc.).
 
-            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
-            response.raise_for_status()
+        Input Forecast:
+        {forecast_str}
+        """
 
-            data = response.json()
-            return json.loads(data["choices"][0]["message"]["content"])
+        response = self.client.chat.completions.create(
+            model=MODEL,
+            response_model=WeatherResponse,
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant that strictly outputs structured JSON."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.5
+        )
 
-        except Exception as e:
-            print(f"LLM API Error: {e}")
-            return {
-                "summary": "Unable to fetch structured data",
-                "chance_of_rain": "Unknown",
-                "advice": "Check official sources",
-                "general_packing_tips": []
-            }
+        return response
 
-    def _extract_json(self, response):
-        try:
-            match = re.search(r'```json\s*(\{.*?\})\s*```', response, re.DOTALL)
-            json_str = match.group(1) if match else response
-            return json.loads(json_str)
-        except Exception as e:
-            print(f"JSON extraction error: {e}")
-            return {
-                "summary": "Unable to parse weather data",
-                "chance_of_rain": "Unknown",
-                "advice": "Check official forecasts",
-                "general_packing_tips": []
-            }
-
+# Combines forecast + LLM advice
 class WeatherPlanner:
     def __init__(self, city, start_date, end_date):
         self.city = city
@@ -159,13 +99,10 @@ class WeatherPlanner:
         result = {
             "location": self.city,
             "trip_dates": trip_dates,
-            "daily_weather": {},
-            "general_packing_tips": None
+            "daily_weather": {}
         }
 
         for date in trip_dates:
-            result["daily_weather"][date] = {}
-
             daily = [f for f in forecast if date in f["time"]]
             if not daily:
                 result["daily_weather"][date] = {
@@ -180,19 +117,20 @@ class WeatherPlanner:
             analysis = self.weather_analyzer.analyze(self.city, forecast_str)
 
             result["daily_weather"][date] = {
-                "summary": analysis.get("summary", "N/A"),
-                "chance_of_rain": analysis.get("chance_of_rain", "Unknown"),
-                "advice": analysis.get("advice", "Stay alert"),
-                "general_packing_tips": analysis.get("general_packing_tips", [])
+                "summary": analysis.summary,
+                "chance_of_rain": analysis.chance_of_rain,
+                "advice": analysis.advice,
+                "general_packing_tips": analysis.general_packing_tips
             }
 
         return result
 
+# Main entry
 if __name__ == "__main__":
     planner = WeatherPlanner(city="New Delhi", start_date="2025-04-24", end_date="2025-04-26")
     weather_plan = planner.plan_trip()
 
     print(json.dumps(weather_plan, indent=4))
-    
+
     with open('final_response.json', 'w') as f:
         json.dump(weather_plan, f, indent=4)
