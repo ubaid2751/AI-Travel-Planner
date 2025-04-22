@@ -1,0 +1,7 @@
+openai
+wikipedia
+
+ollama
+groq
+
+instructor
