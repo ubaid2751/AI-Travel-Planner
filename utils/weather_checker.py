@@ -78,7 +78,6 @@ class WeatherAnalyzer:
 
         return response
 
-# Combines forecast + LLM advice
 class WeatherPlanner:
     def __init__(self, city, start_date, end_date):
         self.city = city
@@ -127,10 +126,7 @@ class WeatherPlanner:
 
 # Main entry
 if __name__ == "__main__":
-    planner = WeatherPlanner(city="New Delhi", start_date="2025-04-24", end_date="2025-04-26")
+    planner = WeatherPlanner(city="Goa", start_date="2025-04-24", end_date="2025-04-28")
     weather_plan = planner.plan_trip()
 
     print(json.dumps(weather_plan, indent=4))
-
-    with open('final_response.json', 'w') as f:
-        json.dump(weather_plan, f, indent=4)
