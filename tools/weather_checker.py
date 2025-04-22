@@ -15,10 +15,10 @@ MODEL = "llama-3.3-70b-versatile"
 BASE_URL = "http://api.openweathermap.org/data/2.5/forecast"
 
 class WeatherResponse(BaseModel):
-    summary: str
-    chance_of_rain: str
-    advice: str
-    general_packing_tips: List[str]
+    summary: str = Field(alias="summary")
+    chance_of_rain: str = Field(alias="chance_of_rain")
+    advice: str = Field(alias="advice")
+    general_packing_tips: List[str] = Field(alias="packing_tips")
 
 class WeatherChecker:
     def __init__(self, city):
