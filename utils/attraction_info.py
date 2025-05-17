@@ -53,18 +53,29 @@ class AttractionPlaceInfo:
 
         prompt = self.build_prompt(summary)
 
-        dest_info = self.client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            response_model=Attraction,
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that strictly follows the user’s instructions and format."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.5,
-        )
+        try:
+            dest_info = self.client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                response_model=Attraction,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that strictly follows the user’s instructions and format."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.5,
+            )
 
-        return dest_info
+            return dest_info
 
+        except Exception as e:
+            print(f"[Error] Failed to fetch attraction info for {self.place_name}: {e}")
+            return Attraction(
+                name=self.place_name,
+                description="No description available.",
+                type="unknown",
+                estimated_time_hours="1 hour",
+                tags=[]
+            )
+    
     def print_info(self):
         dest_info = self.fetch_attraction_info()
         print(dest_info.model_dump_json(indent=4, by_alias=True))
