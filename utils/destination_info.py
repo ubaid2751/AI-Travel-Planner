@@ -1,10 +1,8 @@
-from textwrap import indent
 import instructor
 from pydantic import BaseModel, Field
 from groq import Groq
 import wikipedia
-import json
-from info_attractions import AttractionPlaceInfo
+# from utils.attraction_info import AttractionPlaceInfo
 
 # Set Wikipedia language
 wikipedia.set_lang("en")
@@ -56,7 +54,7 @@ class DestinationInfo:
             temperature=0.5,
         )
 
-        return dest_info
+        return dest_info.model_dump_json(indent=4)
 
     def print_info(self):
         dest_info = self.fetch_destination_info()
@@ -65,4 +63,4 @@ class DestinationInfo:
 if __name__ == "__main__":
     destination_handler = DestinationInfo("Jaipur")
     dest_info = destination_handler.fetch_destination_info()
-    print(dest_info.model_dump_json(indent=4))
+    print(dest_info)
