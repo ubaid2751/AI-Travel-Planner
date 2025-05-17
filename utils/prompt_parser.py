@@ -30,7 +30,7 @@ class PromptParser:
 
             Extract the following details from the user prompt:
             - city: the name of the destination city
-            - start_date: start date of the trip in yyyy-mm-dd format (assume {today} + 7 days if not specified)
+            - start_date: start date of the trip in yyyy-mm-dd format (assume {today} + 0 days if not specified)
             - end_date: end date in yyyy-mm-dd format (assume start_date + 2 days if not specified)
             - number_of_days: total duration of the trip
 
@@ -52,5 +52,5 @@ class PromptParser:
 # Example usage
 if __name__ == "__main__":
     parser = PromptParser()
-    result = parser.parse("Plan a 4-day trip to Goa from April 27")
+    result = parser.parse("Plan a 4-day trip to Goa.")
     print(result.model_dump_json(indent=4))
