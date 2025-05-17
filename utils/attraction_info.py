@@ -42,7 +42,14 @@ class AttractionPlaceInfo:
         try:
             summary = wikipedia.summary(self.place_name, sentences=5)
         except Exception as e:
-            summary = f"Could not retrieve summary for {self.place_name}."
+            print(f"[Warning] Wikipedia summary failed for {self.place_name}: {e}")
+            return Attraction(
+                name=self.place_name,
+                description="No description available.",
+                type="unknown",
+                estimated_time_hours="1 hour",
+                tags=[]
+            )
 
         prompt = self.build_prompt(summary)
 
@@ -61,6 +68,9 @@ class AttractionPlaceInfo:
     def print_info(self):
         dest_info = self.fetch_attraction_info()
         print(dest_info.model_dump_json(indent=4, by_alias=True))
+
+    def get_info_dict(self):
+        return self.fetch_attraction_info().model_dump(by_alias=True)
 
 if __name__ == "__main__":
     attraction_info = AttractionPlaceInfo("Jantar Mantar")
