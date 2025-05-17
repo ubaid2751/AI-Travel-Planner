@@ -22,7 +22,13 @@ class DestinationInfo:
         )
 
     def get_wikipedia_summary(self) -> str:
-        return wikipedia.summary(self.city_name)
+        try:
+            return wikipedia.summary(self.city_name, auto_suggest=False, redirect=False)
+        except wikipedia.exceptions.PageError:
+            raise ValueError(f"No Wikipedia page found for '{self.city_name}'. Check the spelling.")
+        except Exception as e:
+            raise RuntimeError(f"Error fetching summary: {e}")
+
 
     def build_prompt(self, summary: str) -> str:
         return f"""
@@ -54,13 +60,13 @@ class DestinationInfo:
             temperature=0.5,
         )
 
-        return dest_info.model_dump_json(indent=4)
+        return dest_info
 
     def print_info(self):
         dest_info = self.fetch_destination_info()
         print(dest_info.model_dump_json(indent=4))
 
 if __name__ == "__main__":
-    destination_handler = DestinationInfo("Jaipur")
+    destination_handler = DestinationInfo("Nainital")
     dest_info = destination_handler.fetch_destination_info()
     print(dest_info)
