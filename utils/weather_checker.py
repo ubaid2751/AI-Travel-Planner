@@ -89,7 +89,7 @@ class WeatherPlanner:
     def _get_date_range(self):
         start = datetime.strptime(self.start_date, "%Y-%m-%d")
         end = datetime.strptime(self.end_date, "%Y-%m-%d")
-        return [(start + timedelta(days=i)).strftime("%Y-%m-%d") for i in range((end - start).days + 2)]
+        return [(start + timedelta(days=i)).strftime("%Y-%m-%d") for i in range((end - start).days + 1)]
 
     def plan_trip(self):
         forecast = self.weather_checker.get_forecast(self.start_date, self.end_date)
@@ -124,7 +124,6 @@ class WeatherPlanner:
 
         return result
 
-# Main entry
 if __name__ == "__main__":
     planner = WeatherPlanner(city="Goa", start_date="2025-04-24", end_date="2025-04-28")
     weather_plan = planner.plan_trip()
